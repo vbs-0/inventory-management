@@ -19,7 +19,7 @@ The Inventory Management System (IMS) is a web application built using Flask. It
 ## Installation
 1. Clone the repository:
    ```bash
-   git clone <your-repo-url>
+   git clone https://github.com/vbs-0/inventory-management/
    ```
 2. Navigate to the project directory:
    ```bash
