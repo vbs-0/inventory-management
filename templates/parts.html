@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-4">Bus Spare Parts</h1>
+
+<div class="space-y-6">
+    {% for category in categories %}
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:px-6 bg-gray-50">
+            <h2 class="text-lg leading-6 font-medium text-gray-900">{{ category.name }}</h2>
+        </div>
+        <div class="border-t border-gray-200">
+            <dl>
+                {% for subcategory in category.subcategories %}
+                <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                    <dt class="text-sm font-medium text-gray-500">{{ subcategory.name }}</dt>
+                    <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                        <ul class="border border-gray-200 rounded-md divide-y divide-gray-200">
+                            {% for part in subcategory.parts %}
+                            <li class="pl-3 pr-4 py-3 flex items-center justify-between text-sm">
+                                <div class="w-0 flex-1 flex items-center">
+                                    <span class="ml-2 flex-1 w-0 truncate">{{ part.name }}</span>
+                                </div>
+                                <div class="ml-4 flex-shrink-0">
+                                    <span class="font-medium">Quantity: {{ part.quantity }}</span>
+                                </div>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </dd>
+                </div>
+                {% endfor %}
+            </dl>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if current_user.role in ['ADMIN', 'MANAGER', 'SUPERVISOR'] %}
+<div class="mt-8">
+    <a href="{{ url_for('add_part') }}" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        Add New Part
+    </a>
+</div>
+{% endif %}
+{% endblock %}

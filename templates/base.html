@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management System</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        /* Custom Styles */
+        body {
+            background-color: #f9f9f9; /* Light background for the body */
+        }
+
+        /* Navigation Styles */
+        nav {
+            background-color: #ff8c00; /* Orange background for the navbar */
+        }
+
+        nav a {
+            transition: background-color 0.3s ease, color 0.3s ease; /* Smooth transition for hover effects */
+        }
+
+        nav a:hover {
+            background-color: #e07b00; /* Darker orange on hover */
+            color: white; /* White text on hover */
+        }
+
+        /* Message Box Styles */
+        .message-box {
+            transition: border-color 0.3s ease; /* Smooth transition for border color */
+        }
+
+        .message-box.success {
+            border-left: 4px solid #38a169; /* Green border for success */
+        }
+
+        .message-box.error {
+            border-left: 4px solid #e53e3e; /* Red border for error */
+        }
+
+        /* Main Content Styles */
+        main {
+            border-radius: 8px; /* Rounded corners for main content */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+            padding: 20px; /* Padding for main content */
+            background-color: white; /* White background for main content */
+        }
+    </style>
+</head>
+<body>
+    {% if current_user.is_authenticated %}
+    <nav class="text-white">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="{{ url_for('dashboard') }}" class="font-bold text-xl">IMS</a>
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="{{ url_for('dashboard') }}" class="px-3 py-2 rounded-md text-sm font-medium">Dashboard</a>
+                        <a href="{{ url_for('products') }}" class="px-3 py-2 rounded-md text-sm font-medium">Products</a>
+                        {% if current_user.role in ['ADMIN', 'MANAGER'] %}
+                        <a href="{{ url_for('categories') }}" class="px-3 py-2 rounded-md text-sm font-medium">Categories</a>
+                        {% endif %}
+                        {% if current_user.role in ['ADMIN', 'MANAGER', 'SUPERVISOR'] %}
+                        <a href="{{ url_for('orders') }}" class="px-3 py-2 rounded-md text-sm font-medium">Orders</a>
+                        {% endif %}
+                        {% if current_user.role in ['ADMIN', 'MANAGER'] %}
+                        <a href="{{ url_for('reports') }}" class="px-3 py-2 rounded-md text-sm font-medium">Reports</a>
+                        {% endif %}
+                        {% if current_user.role == 'ADMIN' %}
+                        <a href="{{ url_for('users') }}" class="px-3 py-2 rounded-md text-sm font-medium">Users</a>
+                        {% endif %}
+                        {% if current_user.role == 'ADMIN' %}
+                        <a href="{{ url_for('user_activity') }}" class="px-3 py-2 rounded-md text-sm font-medium">User  Activity Logs</a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="mr-4">{{ current_user.name }} ({{ current_user.role }})</span>
+                    <a href="{{ url_for('logout') }}" class="px-3 py-2 rounded-md text-sm font-medium">Logout</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="max-w-7xl mx-auto py-6 px-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="message-box {{ 'success' if category == 'success' else 'error' }} bg-{{ 'green' if category == 'success' else 'red' }}-100 text-{{ 'green' if category == 'success' else 'red' }}-700 p-4 mb-4 rounded-md">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6 p-6">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">Inventory Reports Dashboard</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Summary Cards -->
+        <div class="bg-white rounded-lg shadow-md p-6 transition-all duration-300 hover:shadow-lg">
+            <h2 class="text-xl font-semibold mb-4">Inventory Summary</h2>
+            <p class="text-3xl font-bold text-indigo-600">₹{{ "{:,.2f}".format(total_inventory_value) }}</p>
+            <p class="text-gray-600">Total Inventory Value</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 transition-all duration-300 hover:shadow-lg">
+            <h2 class="text-xl font-semibold mb-4">Usage Summary</h2>
+            <p class="text-3xl font-bold text-green-600">{{ "{:,}".format(weekly_usage) }}</p>
+            <p class="text-gray-600">Weekly Usage</p>
+            <p class="text-2xl font-bold text-green-500 mt-2">{{ "{:,}".format(monthly_usage) }}</p>
+            <p class="text-gray-600">Monthly Usage</p>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 transition-all duration-300 hover:shadow-lg">
+            <h2 class="text-xl font-semibold mb-4">Expenditure Summary</h2>
+            <p class="text-3xl font-bold text-red-600">₹{{ "{:,.2f}".format(total_expenditure) }}</p>
+            <p class="text-gray-600">Total Expenditure</p>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Usage Trend</h2>
+            <canvas id="usageChart"></canvas>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Expenditure Trend</h2>
+            <canvas id="expenditureChart"></canvas>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Category Distribution</h2>
+            <canvas id="categoryChart"></canvas>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Stock Level</h2>
+            <canvas id="stockLevelChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Detailed Reports -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Most Used Items</h2>
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity Used</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in top_items %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">{{ item.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ item.total_quantity }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">₹{{ "{:,.2f}".format(item.total_cost) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Recent Expenditures</h2>
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for expenditure in recent_expenditures %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">{{ expenditure.date.strftime('%Y-%m-%d') }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">₹{{ "{:,.2f}".format(expenditure.amount) }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ expenditure.description }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Download Report Button -->
+    <div class="mt-8">
+        <button id="downloadReport" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors duration-300">
+            Download Full Report (PDF)
+        </button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Fetch chart data
+    fetch('/api/chart-data')
+        .then(response => response.json())
+        .then(data => {
+            createUsageChart(data.usage);
+            createExpenditureChart(data.expenditures);
+            createCategoryChart(data.categories);
+            createStockLevelChart(data.stock_levels);
+        });
+
+    function createUsageChart(usageData) {
+        const ctx = document.getElementById('usageChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: usageData.map(item => item.date),
+                datasets: [{
+                    label: 'Daily Usage',
+                    data: usageData.map(item => item.total),
+                    borderColor: 'rgb(75, 192, 192)',
+                    tension: 0.1,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: {
+                    duration: 2000,
+                    easing: 'easeOutQuart'
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    function createExpenditureChart(expenditureData) {
+        const ctx = document.getElementById('expenditureChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: expenditureData.map(item => item.date),
+                datasets: [{
+                    label: 'Daily Expenditure',
+                    data: expenditureData.map(item => item.total),
+                    backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                    borderColor: 'rgb(255, 99, 132)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                animation: {
+                    duration: 2000,
+                    easing: 'easeOutBounce'
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    function createCategoryChart(categoryData) {
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: categoryData.map(item => item.name),
+                datasets: [{
+                    data: categoryData.map(item => item.count),
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.8)',
+                        'rgba(54, 162, 235, 0.8)',
+                        'rgba(255, 206, 86, 0.8)',
+                        'rgba(75, 192, 192, 0.8)',
+                        'rgba(153, 102, 255, 0.8)',
+                        'rgba(255, 159, 64, 0.8)',
+                        'rgba(255, 99, 71, 0.8)',
+                        'rgba(0, 255, 0, 0.8)',
+                        'rgba(0, 0, 255, 0.8)',
+                        'rgba(128, 0, 128, 0.8)',
+                        'rgba(255, 20, 147, 0.8)'
+                    ],
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Item Categories'
+                    }
+                }
+            }
+        });
+    }
+
+    function createStockLevelChart(stockLevelData) {
+        const ctx = document.getElementById('stockLevelChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: stockLevelData.map(item => item.name),
+                datasets: [{
+                    label: 'Current Stock',
+                    data: stockLevelData.map(item => item.current_stock),
+                    backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                }, {
+                    label: 'Threshold',
+                    data: stockLevelData.map(item => item.threshold),
+                    backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Stock Levels vs Thresholds'
+                    }
+                }
+            }
+        });
+    }
+
+    // PDF Generation
+document.getElementById('downloadReport').addEventListener('click', function() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    doc.setFontSize(18);
+    doc.text('Inventory Management System Report', 14, 22);
+    doc.setFontSize(12);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 32);
+
+    // Add summary data
+    doc.setFontSize(14);
+    doc.text('Summary', 14, 45);
+    doc.setFontSize(10);
+    doc.text(`Total Inventory Value: ₹{{ "{:,.2f}".format(total_inventory_value) }}`, 14, 55);
+    doc.text(`Weekly Usage: {{ "{:,}".format(weekly_usage) }}`, 14, 62);
+    doc.text(`Monthly Usage: {{ "{:,}".format(monthly_usage) }}`, 14, 69);
+    doc.text(`Total Expenditure: ₹{{ "{:,.2f}".format(total_expenditure) }}`, 14, 76);
+
+    // Add most used items
+    doc.setFontSize(14);
+    doc.text('Most Used Items', 14, 90);
+    doc.autoTable({
+        startY: 95,
+        head: [['Item', 'Quantity Used', 'Cost']],
+        body: [
+            {% for item in top_items %}
+            ['{{ item.name }}', '{{ item.total_quantity }}', '₹{{ "{:,.2f}".format(item.total_cost) }}'],
+            {% endfor %}
+        ]
+    });
+
+    // Add recent expenditures
+    doc.setFontSize(14);
+    doc.text('Recent Expenditures', 14, doc.lastAutoTable.finalY + 15);
+    doc.autoTable({
+        startY: doc.lastAutoTable.finalY + 20,
+        head: [['Date', 'Amount', 'Description']],
+        body: [
+            {% for expenditure in recent_expenditures %}
+            ['{{ expenditure.date.strftime('%Y-%m-%d') }}', '₹{{ "{:,.2f}".format(expenditure.amount) }}', '{{ expenditure.description }}'],
+            {% endfor %}
+        ]
+    });
+
+    // Add low stock items
+    doc.setFontSize(14);
+    doc.text('Low Stock Items', 14, doc.lastAutoTable.finalY + 15);
+    doc.autoTable({
+        startY: doc.lastAutoTable.finalY + 20,
+        head: [['Item', 'Current Stock', 'Threshold']],
+        body: [
+            {% for item in low_stock %}
+            ['{{ item.name }}', '{{ item.quantity }}', '{{ item.low_stock_threshold }}'],
+            {% endfor %}
+        ]
+    });
+
+    // Add charts as images on separate pages
+    const usageChart = document.getElementById('usageChart');
+    const expenditureChart = document.getElementById('expenditureChart');
+    const categoryChart = document.getElementById('categoryChart');
+    const stockLevelChart = document.getElementById('stockLevelChart');
+
+    // Usage Chart
+    doc.addPage();
+    doc.addImage(usageChart.toDataURL('image/png'), 'PNG', 14, 20, 180, 100);
+    doc.text('Usage Trend', 14, 130);
+
+    // Expenditure Chart
+    doc.addPage();
+    doc.addImage(expenditureChart.toDataURL('image/png'), 'PNG', 14, 20, 180, 100);
+    doc.text('Expenditure Trend', 14, 130);
+
+    // Category Chart
+    doc.addPage();
+    doc.addImage(categoryChart.toDataURL('image/png'), 'PNG', 14, 20, 180, 100);
+    doc.text('Category Distribution', 14, 130);
+
+    // Stock Level Chart
+    doc.addPage();
+    doc.addImage(stockLevelChart.toDataURL('image/png'), 'PNG', 14, 20, 180, 100);
+    doc.text('Stock Level', 14, 130);
+
+    doc.save('inventory_management_report.pdf');
+});
+});
+</script>
+{% endblock %}
